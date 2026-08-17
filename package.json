@@ -1,0 +1,28 @@
+{
+  "name": "synapsejudge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SynapseJudge — MERN online judge with sandboxed execution, timed arenas, and embedding-based plagiarism detection",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,worker,web -c cyan,magenta,green \"npm:dev:api\" \"npm:dev:worker\" \"npm:dev:web\"",
+    "dev:api": "npm run dev --workspace server",
+    "dev:worker": "npm run worker --workspace server",
+    "dev:web": "npm run dev --workspace client",
+    "seed": "npm run seed --workspace server",
+    "build": "npm run build --workspace client",
+    "certs": "node scripts/make-certs.mjs",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "runners:build": "node scripts/build-runners.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

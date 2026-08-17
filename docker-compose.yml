@@ -1,0 +1,34 @@
+# Pinned so the compose project name comes from here, not from the folder name.
+# Without this, renaming the directory silently repoints every container and
+# volume at a new project and the existing database appears to vanish.
+name: synapsejudge
+
+# Both services are bound to 127.0.0.1, NOT 0.0.0.0. A bare `27017:27017`
+# publishes on every interface, and Docker writes its own iptables rules that
+# bypass ufw — so on a public host that is an unauthenticated MongoDB open to
+# the internet regardless of what the firewall says. Only the API and the judge
+# worker need these, and both run on the same host.
+services:
+  mongo:
+    image: mongo:7
+    container_name: synapsejudge-mongo
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: synapsejudge-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      # Override REDIS_HOST_PORT when the host already runs Redis on 6379.
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mongo-data:
+  redis-data:

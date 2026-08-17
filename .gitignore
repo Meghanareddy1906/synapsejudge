@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+npm-debug.log*
+logs/
+.DS_Store
+coverage/
+.tmp-submissions/
+
+# Local development TLS. Self-signed, machine-specific, and the key is secret —
+# regenerate with: npm run certs
+certs/
+*.pem

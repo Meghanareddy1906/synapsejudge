@@ -1,0 +1,81 @@
+# Render Blueprint — one free web service plus a free Key Value (Redis) store.
+#
+# Deploy: Render Dashboard -> New -> Blueprint -> pick this repo.
+# You will be asked for MONGO_URI (see RENDER.md for the free Atlas step).
+#
+# Why one service and not the API/worker split that ecosystem.config.cjs uses:
+# Render has no background-worker tier on the free plan, so the judge runs
+# inside the web process (RUN_WORKER_IN_API). That is only reasonable because
+# EXECUTION_PROVIDER=judge0 makes judging an outbound HTTP call rather than
+# local CPU work — Render does not expose a Docker daemon to your container, so
+# the default container sandbox cannot run here at all. See RENDER.md.
+
+services:
+  - type: web
+    name: synapsejudge
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    # --include=dev is required, not optional. NODE_ENV=production below makes
+    # npm skip devDependencies, and vite — which builds the client — is one.
+    # Without it the build dies on `sh: 1: vite: not found`.
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: node server/src/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Pinned. `engines: ">=20"` alone let Render pick 26.x, which is newer
+      # than anything this project has been run against.
+      - key: NODE_VERSION
+        value: "22"
+
+      # Express serves client/dist itself; there is no separate static service.
+      - key: SERVE_CLIENT
+        value: "true"
+
+      # No Docker daemon on Render — judge via a hosted executor instead.
+      - key: EXECUTION_PROVIDER
+        value: judge0
+      - key: JUDGE0_URL
+        value: https://ce.judge0.com
+
+      # No free background-worker tier, so the judge runs in this process.
+      - key: RUN_WORKER_IN_API
+        value: "true"
+      # The free instance has 512 MB and shares a core; two in-flight judge
+      # jobs is plenty when each one is just an HTTP round trip.
+      - key: JUDGE_CONCURRENCY
+        value: "2"
+
+      # Render's free tier has no shell, so `npm run seed` cannot be run after
+      # deploy. Seeding on boot is idempotent; set it to false once you are up.
+      - key: SEED_ON_BOOT
+        value: "true"
+      # Set this before the first deploy. Without it the admin password is the
+      # one published in this repo's README, on a site anyone can reach.
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+
+      # Generated once by Render and held in the service's environment.
+      - key: JWT_SECRET
+        generateValue: true
+
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: synapsejudge-kv
+          property: connectionString
+
+      # Prompted for on first deploy — MongoDB Atlas connection string.
+      - key: MONGO_URI
+        sync: false
+
+  - type: keyvalue
+    name: synapsejudge-kv
+    plan: free
+    region: singapore
+    # BullMQ connects from the web service over Render's private network only.
+    ipAllowList: []
